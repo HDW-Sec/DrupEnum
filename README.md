@@ -6,7 +6,7 @@ check OSV advisories for detected versions.
 
 ## Why DrupEnum
 
-We built DrupEnum because we could not find a lightweight tool that reliably combined Drupal module enumeration, core fingerprinting and vulnerability lookups in one CLI. 
+We built DrupEnum because we could not find a lightweight tool that reliably combined Drupal module enumeration, core fingerprinting and vulnerability lookups in one CLI.  More information on https://hdwsec.fr/fr/blog/drupenum-tool/.
 
 ## Features
 
