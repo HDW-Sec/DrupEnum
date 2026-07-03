@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drupenum"
+version = "0.1.0"
+description = "Enumerate exposed Drupal modules and optional OSV advisories."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31.0",
+]
+
+[project.scripts]
+drupenum = "drupenum.cli:main"
+
+[tool.setuptools.package-data]
+"drupenum.data" = ["*.sqlite"]
+
+[tool.setuptools.packages.find]
+include = ["drupenum*"]
