@@ -50,7 +50,7 @@ def module_paths(name):
     )
 
 
-def probe_module(name, base_url, timeout, user_agent, insecure=False):
+def probe_module(name, base_url, timeout, user_agent, insecure=False, on_request=None):
     session = make_session(user_agent, insecure)
     try:
         for path in module_paths(name):
@@ -60,8 +60,12 @@ def probe_module(name, base_url, timeout, user_agent, insecure=False):
                     timeout=timeout,
                     allow_redirects=False,
                 )
-            except requests.RequestException:
+            except requests.RequestException as exc:
+                if on_request:
+                    on_request(name, "/" + path, f"ERROR {type(exc).__name__}: {exc}")
                 continue
+            if on_request:
+                on_request(name, "/" + path, str(response.status_code))
 
             if response.status_code == 200 and is_info_file(response.text, path):
                 return {
@@ -85,8 +89,12 @@ def enumerate_modules(
     insecure=False,
     max_workers=10,
     on_found=None,
+    on_progress=None,
+    on_request=None,
 ):
     found = []
+    completed = 0
+    total = len(module_names)
     with futures.ThreadPoolExecutor(max_workers=max(1, max_workers)) as pool:
         jobs = (
             pool.submit(
@@ -96,6 +104,7 @@ def enumerate_modules(
                 timeout,
                 user_agent,
                 insecure,
+                on_request,
             )
             for name in module_names
         )
@@ -105,4 +114,7 @@ def enumerate_modules(
                 found.append(result)
                 if on_found:
                     on_found(result)
+            completed += 1
+            if on_progress and (completed == 1 or completed % 100 == 0 or completed == total):
+                on_progress(completed, total)
     return sorted(found, key=lambda module: module["name"])
