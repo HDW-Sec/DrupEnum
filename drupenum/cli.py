@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+import time
 
 from .config import DEFAULT_CORE_HASH_DB, DEFAULT_DB, PROBE_THREADS, USER_AGENT
 from .core import detect_core, fingerprint_core, infer_core_from_modules
@@ -15,6 +16,7 @@ from .output import print_text
 def main(argv=None):
     args = parse_args(argv)
     base_url = normalize_target_url(args.target)
+    started = time.monotonic()
 
     log(f"[*] target: {base_url}")
     core = detect_core(base_url, args.timeout, args.user_agent, args.insecure)
@@ -23,6 +25,8 @@ def main(argv=None):
         raise SystemExit("No module candidates loaded. Pass --modules-file or a valid --db.")
 
     log(f"[*] probing {len(module_names)} modules")
+    if args.verbose:
+        log(f"[INFO] threads={args.probe_threads} timeout={args.timeout}s candidates={len(module_names)}")
     modules = enumerate_modules(
         sorted(module_names),
         base_url,
@@ -31,6 +35,14 @@ def main(argv=None):
         args.insecure,
         args.probe_threads,
         on_found=lambda result: log(f"[+] {result['name']} {result['version']}"),
+        on_progress=(
+            (lambda done, total: log(f"[INFO] module probes completed: {done}/{total}"))
+            if args.verbose else None
+        ),
+        on_request=(
+            (lambda name, path, status: log(f"[HTTP] {name} {path} -> {status}"))
+            if args.verbose >= 2 else None
+        ),
     )
 
     infer_core_from_modules(core, modules)
@@ -47,6 +59,8 @@ def main(argv=None):
         check_vulns(core, modules, args.timeout, args.user_agent, args.insecure)
 
     emit_results({"core": core, "modules": modules}, args)
+    if args.verbose:
+        log(f"[INFO] finished in {time.monotonic() - started:.1f}s; modules found={len(modules)}")
 
 
 def parse_args(argv=None):
@@ -66,6 +80,10 @@ def parse_args(argv=None):
     parser.add_argument("--modules-file", help="module names, one per line")
     parser.add_argument("--check-vulns", action="store_true", help="query OSV")
     parser.add_argument("--fingerprint-core", action="store_true", help="hash static core files")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0,
+        help="-v: progress every 100 modules; -vv: each HTTP request and outcome",
+    )
     parser.add_argument("--probe-threads", type=int, default=PROBE_THREADS)
     parser.add_argument("--timeout", type=float, default=10)
     parser.add_argument("--user-agent", default=USER_AGENT)
